@@ -427,6 +427,11 @@ func (b *ByteBuf) WriteString(v string) {
 func (b *ByteBuf) Grow(n int) {
 	if free := b.Writeable(); free < n {
 		current := b.capacity()
+
+		if !b.options.disableCompactAfterGrow {
+			current -= b.readerIndex
+		}
+
 		step := current / 2
 		if step < b.options.minGrowSize {
 			step = b.options.minGrowSize
@@ -518,6 +523,11 @@ func (b *ByteBuf) ReadFrom(r io.Reader) (n int64, err error) {
 			return n, e
 		}
 	}
+}
+
+func (b *ByteBuf) String() string {
+	return fmt.Sprintf("readerIndex:%d, writerIndex:%d, markedIndex:%d, capacity:%d options: alloc %v, minGrowSize %d ioCopyBufferSize %d disableCompactAfterGrow %v",
+		b.readerIndex, b.writerIndex, b.markedIndex, b.capacity(), b.options.alloc, b.options.minGrowSize, b.options.ioCopyBufferSize, b.options.disableCompactAfterGrow)
 }
 
 func (b *ByteBuf) capacity() int {
