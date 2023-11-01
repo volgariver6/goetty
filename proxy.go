@@ -39,7 +39,7 @@ type proxy struct {
 }
 
 func (p *proxy) Start() error {
-	server, err := NewApplication(p.address, nil, WithAppHandleSessionFunc(p.handleSession))
+	server, err := NewApplication("internal-proxy", p.address, nil, WithAppHandleSessionFunc(p.handleSession))
 	if err != nil {
 		return err
 	}

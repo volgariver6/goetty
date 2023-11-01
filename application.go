@@ -1,14 +1,18 @@
 package goetty
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/url"
 	"os"
+	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -115,6 +119,7 @@ type sessionMap struct {
 }
 
 type server struct {
+	name       string
 	logger     *zap.Logger
 	listeners  []net.Listener
 	wg         sync.WaitGroup
@@ -139,8 +144,9 @@ type server struct {
 }
 
 // NewApplicationWithListener returns a net application with listener
-func NewApplicationWithListeners(listeners []net.Listener, handleFunc func(IOSession, any, uint64) error, opts ...AppOption) (NetApplication, error) {
+func NewApplicationWithListeners(name string, listeners []net.Listener, handleFunc func(IOSession, any, uint64) error, opts ...AppOption) (NetApplication, error) {
 	s := &server{
+		name:       name,
 		listeners:  listeners,
 		handleFunc: handleFunc,
 	}
@@ -170,7 +176,7 @@ func NewApplicationWithListeners(listeners []net.Listener, handleFunc func(IOSes
 }
 
 // NewApplication returns a application
-func NewApplication(address string, handleFunc func(IOSession, any, uint64) error, opts ...AppOption) (NetApplication, error) {
+func NewApplication(name string, address string, handleFunc func(IOSession, any, uint64) error, opts ...AppOption) (NetApplication, error) {
 	network, address, err := parseAdddress(address)
 	if err != nil {
 		return nil, err
@@ -185,11 +191,11 @@ func NewApplication(address string, handleFunc func(IOSession, any, uint64) erro
 		return nil, err
 	}
 
-	return NewApplicationWithListeners([]net.Listener{listener}, handleFunc, opts...)
+	return NewApplicationWithListeners(name, []net.Listener{listener}, handleFunc, opts...)
 }
 
 // NewApplicationWithListenAddress create a net application with listen multi addresses
-func NewApplicationWithListenAddress(addresses []string, handleFunc func(IOSession, any, uint64) error, opts ...AppOption) (NetApplication, error) {
+func NewApplicationWithListenAddress(name string, addresses []string, handleFunc func(IOSession, any, uint64) error, opts ...AppOption) (NetApplication, error) {
 	listeners := make([]net.Listener, 0, len(addresses))
 	for _, address := range addresses {
 		network, address, err := parseAdddress(address)
@@ -208,7 +214,7 @@ func NewApplicationWithListenAddress(addresses []string, handleFunc func(IOSessi
 		listeners = append(listeners, listener)
 	}
 
-	return NewApplicationWithListeners(listeners, handleFunc, opts...)
+	return NewApplicationWithListeners(name, listeners, handleFunc, opts...)
 }
 
 func (s *server) Start() error {
@@ -341,6 +347,12 @@ func (s *server) doStart() {
 						}
 					}
 				}()
+                data := make([]byte, 64)
+	            data = data[:runtime.Stack(data, false)]
+	            data = bytes.TrimPrefix(data, []byte("goroutine "))
+	            data = data[:bytes.IndexByte(data, ' ')]
+	            id, _ := strconv.ParseUint(string(data), 10, 64)
+                fmt.Printf("liubo: goroutine id %d, name %s\n", id, s.name)
 				if err := handle(rs); err != nil {
 					s.logger.Error("handle session failed", zap.Error(err))
 				}
